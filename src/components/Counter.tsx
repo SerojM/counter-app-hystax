@@ -1,4 +1,3 @@
-import React from 'react';
 import styles from '../styles/Counter.module.css';
 
 interface CounterProps {

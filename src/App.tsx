@@ -1,91 +1,86 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Counter from './components/Counter';
 import IncrementButton from './components/IncrementButton';
 import { CONFIG } from './config/config';
 import styles from './styles/App.module.css';
 
-interface AppProps {
-
-}
-
-function App(): React.FC<AppProps> {
-
-  const [count, setCount] = useState<number>(0);
-  const [isDecaying, setIsDecaying] = useState<boolean>(false);
+function App() {
+  const [count, setCount] = useState(0);
+  const [isDecaying, setIsDecaying] = useState(false);
 
   const idleTimerRef = useRef<number | null>(null);
   const decayIntervalRef = useRef<number | null>(null);
 
-  const resetIdleTimer = useCallback(() => {
-    if (idleTimerRef.current) {
-      window.clearTimeout(idleTimerRef.current);
+  const clearIdleTimer = () => {
+    if (idleTimerRef.current !== null) {
+      clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = null;
     }
+  };
 
-    if (decayIntervalRef.current) {
-      window.clearInterval(decayIntervalRef.current);
-      setIsDecaying(false);
+  const clearDecayInterval = () => {
+    if (decayIntervalRef.current !== null) {
+      clearInterval(decayIntervalRef.current);
+      decayIntervalRef.current = null;
     }
+  };
+
+  const startIdleTimer = useCallback(() => {
+    clearIdleTimer();
+    clearDecayInterval();
+    setIsDecaying(false);
 
     idleTimerRef.current = window.setTimeout(() => {
       setIsDecaying(true);
-
-      decayIntervalRef.current = window.setInterval(() => {
-        setCount((prevCount) => {
-          if (prevCount <= 0) {
-            if (decayIntervalRef.current) {
-              window.clearInterval(decayIntervalRef.current);
-              decayIntervalRef.current = null;
-              setIsDecaying(false);
-            }
-            return 0;
-          }
-          return prevCount - 1;
-        });
-      }, CONFIG.decayInterval);
     }, CONFIG.idleTimeout);
   }, []);
 
+  const startDecay = useCallback(() => {
+    decayIntervalRef.current = window.setInterval(() => {
+      setCount((prev) => {
+        if (prev <= 1) {
+          clearDecayInterval();
+          setIsDecaying(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, CONFIG.decayInterval);
+  }, []);
+
   const handleIncrement = useCallback((value: number) => {
-    setCount((prevCount) => prevCount + value);
-    resetIdleTimer();
-  }, [resetIdleTimer]);
+    setCount((prev) => prev + value);
+    startIdleTimer();
+  }, [startIdleTimer]);
 
   useEffect(() => {
-    resetIdleTimer();
+    if (isDecaying) {
+      startDecay();
+    }
+    return () => clearDecayInterval();
+  }, [isDecaying, startDecay]);
 
+  useEffect(() => {
+    startIdleTimer();
     return () => {
-      if (idleTimerRef.current) {
-        window.clearTimeout(idleTimerRef.current);
-      }
-      if (decayIntervalRef.current) {
-        window.clearInterval(decayIntervalRef.current);
-      }
+      clearIdleTimer();
+      clearDecayInterval();
     };
-  }, [resetIdleTimer]);
+  }, [startIdleTimer]);
 
   return (
-    <div className={styles.app}>
-      <div className={styles.wrapper}>
-      <h1 className={styles.title}>React Counter App</h1>
-      <p className={styles.description}>
-        Click the buttons to increase the counter.
-        Each button has a cooldown period after being clicked.
-        If idle for 10 seconds, the counter will start decreasing.
-      </p>
-
-      <Counter value={count} isDecaying={isDecaying} />
-
-      <div className={styles.buttonContainer}>
-        {CONFIG.buttons.map((button) => (
-          <IncrementButton
-            key={button.value}
-            value={button.value}
-            label={button.label}
-            onIncrement={handleIncrement}
-          />
-        ))}
-      </div>
-    </div>
+      <div className={styles.app}>
+        <Counter value={count} isDecaying={isDecaying} />
+        <div className={styles.buttonContainer}>
+          {CONFIG.buttons.map((btn) => (
+              <IncrementButton
+                  key={btn.value}
+                  value={btn.value}
+                  label={btn.label}
+                  onIncrement={handleIncrement}
+              />
+          ))}
+        </div>
       </div>
   );
 }
